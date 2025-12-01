@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-3">Register resident</h3>
+<form method="post" class="row g-3">
+  <div class="col-md-6">
+    <label class="form-label">Name *</label>
+    <input name="name" class="form-control" required>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Age *</label>
+    <input name="age" type="number" class="form-control" required>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Sex *</label>
+    <select name="sex" class="form-select">
+      <option>F</option><option>M</option><option>Other</option>
+    </select>
+  </div>
+
+  <div class="col-md-3">
+    <label class="form-label">Weight (kg) *</label>
+    <input name="weight_kg" type="number" step="0.1" class="form-control" required>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Height (cm) *</label>
+    <input name="height_cm" type="number" step="0.1" class="form-control" required>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Daily calories target (kcal)</label>
+    <input name="calorie_target_kcal" type="number" step="1" class="form-control">
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Protein target (g)</label>
+    <input name="protein_target_g" type="number" step="0.1" class="form-control">
+  </div>
+
+  <div class="col-md-6">
+    <label class="form-label">Allergies (comma-separated)</label>
+    <input name="allergies" class="form-control" placeholder="nuts,dairy,gluten">
+  </div>
+  <div class="col-md-6">
+    <label class="form-label">Conditions (comma-separated)</label>
+    <input name="conditions" class="form-control" placeholder="diabetes,hypertension">
+  </div>
+
+  <div class="col-md-4">
+    <label class="form-label">Diet type</label>
+    <select name="diet_type" class="form-select">
+      <option>none</option><option>vegetarian</option><option>vegan</option>
+      <option>halal</option><option>kosher</option>
+    </select>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Texture</label>
+    <select name="texture" class="form-select">
+      <option>regular</option><option>soft</option><option>pureed</option>
+    </select>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Cultural prefs</label>
+    <input name="cultural_prefs" class="form-control" placeholder="british,caribbean,nigerian">
+  </div>
+
+  <div class="col-12">
+    <button class="btn btn-success">Save</button>
+    <a href="{{ url_for('residents_list') }}" class="btn btn-secondary">Cancel</a>
+  </div>
+</form>
+{% endblock %}

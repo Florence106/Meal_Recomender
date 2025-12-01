@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}Residents — Dashboard{% endblock %}
+{% block content %}
+
+<div class="container-fluid dash-wrap page-residents-bg">
+  <div class="row">
+    <!-- Sidebar (purple) -->
+    <aside class="col-lg-3 col-xl-3 d-none d-lg-block">
+      <div class="dash-sidebar">
+        <div class="brand mb-3 d-flex align-items-center gap-2">
+          <i class="bi bi-heart-pulse"></i>
+          <span>Care Admin</span>
+        </div>
+
+        <div class="sb-stat mb-3">
+          <div class="small text-white-50">Total residents</div>
+          <div class="fs-5">{{ total }}</div>
+        </div>
+
+        <nav class="dash-nav d-grid gap-1">
+          <a class="active" href="{{ url_for('residents_list') }}">
+            <i class="bi bi-people"></i> Residents
+          </a>
+          <a href="{{ url_for('residents_new') }}">
+            <i class="bi bi-person-plus"></i> Register
+          </a>
+          <a href="{{ url_for('home') }}">
+            <i class="bi bi-house"></i> Home
+          </a>
+        </nav>
+      </div>
+    </aside>
+
+    <!-- Main content (centred) -->
+    <section class="col-lg-9 col-xl-9">
+      <div class="residents-shell">
+        <div class="residents-content">
+
+          <!-- Actions + Filters in a glass panel -->
+          <div class="glass-panel mb-3 p-3">
+            <!-- Actions row -->
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              <a class="btn btn-primary" href="{{ url_for('residents_new') }}">
+                <i class="bi bi-person-plus"></i> Add new
+              </a>
+              <button class="btn btn-outline-secondary" type="button">
+                <i class="bi bi-file-earmark-arrow-up"></i> Import
+              </button>
+              <button class="btn btn-outline-secondary" type="button">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Export
+              </button>
+            </div>
+
+            <!-- Filters (compact, one row) -->
+            <form class="row g-2 align-items-end filters-compact" method="get">
+              <div class="col-md-auto">
+                <label class="form-label">Search</label>
+                <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Name, culture" />
+              </div>
+              <div class="col-md-auto">
+                <label class="form-label">Diet</label>
+                <select name="diet" class="form-select">
+                  <option value="" {% if not diet %}selected{% endif %}>Any</option>
+                  {% for d in ["none","vegetarian","vegan","halal","kosher"] %}
+                  <option value="{{ d }}" {% if diet==d %}selected{% endif %}>{{ d|capitalize }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-auto">
+                <label class="form-label">Allergy</label>
+                <input type="text" name="allergy" value="{{ has_all }}" class="form-control" placeholder="e.g. nuts" />
+              </div>
+              <div class="col-md-auto">
+                <label class="form-label">Condition</label>
+                <input type="text" name="condition" value="{{ has_con }}" class="form-control" placeholder="e.g. diabetes" />
+              </div>
+              <div class="col-md-auto">
+                <label class="form-label">Sort</label>
+                <select name="sort" class="form-select">
+                  <option value="name" {% if sort=='name' %}selected{% endif %}>Name</option>
+                  <option value="age" {% if sort=='age' %}selected{% endif %}>Age</option>
+                  <option value="bmi" {% if sort=='bmi' %}selected{% endif %}>BMI</option>
+                </select>
+              </div>
+              <div class="col-md-auto">
+                <label class="form-label">Order</label>
+                <select name="order" class="form-select">
+                  <option value="asc" {% if order=='asc' %}selected{% endif %}>Asc</option>
+                  <option value="desc" {% if order=='desc' %}selected{% endif %}>Desc</option>
+                </select>
+              </div>
+              <div class="col-md-auto">
+                <label class="form-label">Max</label>
+                <select name="limit" class="form-select">
+                  {% for n in [10,20,50,100] %}
+                  <option value="{{ n }}" {% if limit==n %}selected{% endif %}>{{ n }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-auto d-grid">
+                <button class="btn btn-dark">
+                  <i class="bi bi-funnel"></i> Filter
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Table in another glass panel -->
+          {% if residents|length == 0 %}
+            <div class="glass-panel p-3">
+              <div class="alert alert-info mb-0">
+                No residents match your filters. Try clearing them or register a resident.
+              </div>
+            </div>
+          {% else %}
+          <div class="glass-panel table-wrap">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle card-table">
+                <thead>
+                  <tr>
+                    <th>Photo</th>
+                    <th>Member name</th>
+                    <th>Age</th>
+                    <th>Diet</th>
+                    <th>BMI</th>
+                    <th>Conditions</th>
+                    <th class="text-end">Operation</th>
+                    <th class="text-end">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for r in residents %}
+                  <tr>
+                    <td>
+                      <div class="avatar">{{ r.initials }}</div>
+                    </td>
+                    <td class="fw-semibold">{{ r.name }}</td>
+                    <td class="text-muted">{{ r.age }}</td>
+                    <td>
+                      {% set diet_val = r.diet_type|lower %}
+                      <span class="badge
+                        {% if diet_val=='vegan' %}bg-success
+                        {% elif diet_val=='vegetarian' %}bg-info text-dark
+                        {% elif diet_val=='none' %}bg-secondary
+                        {% else %}bg-primary{% endif %}">
+                        {{ r.diet_type|capitalize }}
+                      </span>
+                    </td>
+                    <td>
+                      {% if r.bmi_text %}
+                        <span class="badge {{ r.bmi_class }}">{{ r.bmi_text }}</span>
+                      {% else %}
+                        <span class="text-muted">–</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if r.conditions_list|length == 0 %}
+                        <span class="text-muted">–</span>
+                      {% else %}
+                        {% for c in r.conditions_list %}
+                          <span class="badge rounded-pill text-bg-light border">{{ c }}</span>
+                        {% endfor %}
+                      {% endif %}
+                    </td>
+                    <td class="text-end">
+                      <div class="btn-group">
+                        <a class="btn btn-icon btn-outline-secondary" title="Edit"
+                           href="{{ url_for('residents_edit', resident_id=r.resident_id) }}">
+                          <i class="bi bi-pencil"></i>
+                        </a>
+                        <form method="post"
+                              action="{{ url_for('residents_delete', resident_id=r.resident_id) }}"
+                              class="d-inline-block"
+                              onsubmit="return confirm('Delete {{ r.name }}? This cannot be undone.');">
+                          <button class="btn btn-icon btn-outline-danger" title="Delete">
+                            <i class="bi bi-trash"></i>
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                    <td class="text-end">
+                      <a class="btn btn-sm btn-primary"
+                         href="{{ url_for('resident_recommendations', resident_id=r.resident_id, meal_type='lunch') }}">
+                        Recommend
+                      </a>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% endif %}
+
+        </div> <!-- /.residents-content -->
+      </div>   <!-- /.residents-shell -->
+    </section>
+  </div>
+</div>
+
+{% endblock %}

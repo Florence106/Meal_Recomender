@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Meal Recommender — Home{% endblock %}
+{% block content %}
+
+<!-- HERO -->
+<section class="hero position-relative mb-4" style="--hero-image: url('{{ url_for('static', filename='img/seniors.jpg') }}');">
+  <svg class="wave" viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M0,32L60,48C120,64,240,96,360,96C480,96,600,64,720,53.3C840,43,960,53,1080,69.3C1200,85,1320,107,1380,117.3L1440,128L1440,0L1380,0C1320,0,1200,0,1080,0C960,0,840,0,720,0C600,0,480,0,360,0C240,0,120,0,60,0L0,0Z"/>
+  </svg>
+
+  <div class="container py-5 hero-inner">
+    <div class="row align-items-center">
+      <div class="col-lg-7">
+        <span class="badge bg-light text-dark mb-3">AI for Care Homes</span>
+        <h1 class="display-4 mb-3">Personalised Meal Plans for Happier, Healthier Residents</h1>
+        <p class="lead mb-4">
+          A hybrid rule-based + machine learning system that respects allergies, medical conditions,
+          and preferences — then learns what each resident actually enjoys.
+        </p>
+
+        <div class="input-group mb-3" style="max-width: 520px;">
+          <input type="email" class="form-control" placeholder="name@carehome.org" aria-label="email (demo)">
+          <a href="{{ url_for('residents_new') }}" class="btn btn-pink btn-danger">Get Started</a>
+        </div>
+
+        <div class="text-white-50">
+          <small>
+            Meals loaded: <strong>{{ meals_count }}</strong> ·
+            Residents registered: <strong>{{ residents_count }}</strong>
+          </small>
+        </div>
+      </div>
+      <div class="col-lg-5 d-none d-lg-block">
+        <!-- Optional decorative phone/metrics card -->
+        <div class="card bg-white bg-opacity-75 border-0 shadow-lg rounded-4">
+          <div class="card-body p-4">
+            <h6 class="text-muted mb-3">Today’s Menu Snapshot</h6>
+            <ul class="list-unstyled small mb-0">
+              <li class="mb-2">🍳 High-protein breakfasts</li>
+              <li class="mb-2">🥗 Low-sodium lunches for hypertension</li>
+              <li class="mb-2">🍲 Soft/pureed textures supported</li>
+              <li>⭐ Learns from likes & portions eaten</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="container pb-4">
+  <div class="text-center mb-4">
+    <h3 class="fw-bold">Why It’s Special</h3>
+    <p class="text-muted mb-0">Built for residential care — safe, adaptive, and easy.</p>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="card feature-card shadow-sm h-100">
+        <div class="card-body">
+          <div class="mb-2"><span class="badge bg-primary"><i class="bi bi-shield-check"></i> Safety-first</span></div>
+          <h5 class="card-title">Smart Rules</h5>
+          <p class="text-muted mb-0">Allergies, conditions (e.g., diabetes, hypertension), calorie targets, and textures enforced by design.</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card feature-card shadow-sm h-100">
+        <div class="card-body">
+          <div class="mb-2"><span class="badge bg-success"><i class="bi bi-cpu"></i> Adaptive</span></div>
+          <h5 class="card-title">Learns Preferences</h5>
+          <p class="text-muted mb-0">Lightweight ML re-ranks meals based on likes and portions eaten over time.</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card feature-card shadow-sm h-100">
+        <div class="card-body">
+          <div class="mb-2"><span class="badge bg-info text-dark"><i class="bi bi-box-seam"></i> Practical</span></div>
+          <h5 class="card-title">Ready for the Web</h5>
+          <p class="text-muted mb-0">Flask + Bootstrap front-end, CSV/Excel import, and FastAPI-friendly structure for later integration.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

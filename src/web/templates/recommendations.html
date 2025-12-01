@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Recommendations — {{ resident.name }}{% endblock %}
+{% block content %}
+
+<div class="container-fluid rec-bg">
+  <div class="row">
+    <div class="col-12">
+      <div class="rec-shell">
+        <div class="rec-content">
+
+          <!-- Header + controls in a glass panel -->
+          <div class="rec-glass mb-3 p-3 p-md-4">
+            <div class="row mb-3">
+              <div class="col-md-8">
+                <h3 class="mb-1">
+                  Recommendations for {{ resident.name }}
+                  {% if meal_type %}
+                    <small class="text-muted">({{ meal_type|capitalize }})</small>
+                  {% endif %}
+                </h3>
+                <p class="mb-0 text-muted small">
+                  Age {{ resident.age }},
+                  {% if resident.bmi %} BMI {{ resident.bmi }}{% endif %},
+                  {% if resident.diet_type and resident.diet_type != "none" %}
+                    diet: {{ resident.diet_type|capitalize }}
+                  {% else %}
+                    no special diet recorded
+                  {% endif %}
+                </p>
+              </div>
+              <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <a href="{{ url_for('residents_list') }}" class="btn btn-outline-light btn-sm">
+                  <i class="bi bi-arrow-left"></i> Back to residents
+                </a>
+              </div>
+            </div>
+
+            <!-- Controls -->
+            <form class="row g-2 align-items-end" method="get">
+              <div class="col-md-3">
+                <label class="form-label">Meal type</label>
+                <select name="meal_type" class="form-select">
+                  <option value="" {% if not meal_type %}selected{% endif %}>All meals</option>
+                  {% for t in ["breakfast","lunch","dinner","snack"] %}
+                  <option value="{{ t }}" {% if meal_type==t %}selected{% endif %}>{{ t|capitalize }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">Sort by</label>
+                <select name="sort" class="form-select">
+                  <option value="name" {% if sort_key=='name' %}selected{% endif %}>Name</option>
+                  <option value="calories_kcal" {% if sort_key=='calories_kcal' %}selected{% endif %}>Calories</option>
+                  <option value="protein_g" {% if sort_key=='protein_g' %}selected{% endif %}>Protein</option>
+                  <option value="sodium_mg" {% if sort_key=='sodium_mg' %}selected{% endif %}>Sodium</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">Max results</label>
+                <select name="limit" class="form-select">
+                  {% for n in [10,20,50,100] %}
+                  <option value="{{ n }}" {% if limit==n %}selected{% endif %}>{{ n }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Rule strictness</label>
+                <select name="strict" class="form-select">
+                  <option value="1" {% if strict %}selected{% endif %}>Strict (safer)</option>
+                  <option value="0" {% if not strict %}selected{% endif %}>Relaxed (more options)</option>
+                </select>
+              </div>
+              <div class="col-md-2 d-grid">
+                <button class="btn btn-primary">
+                  <i class="bi bi-funnel"></i> Update
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Results glass panel -->
+          <div class="rec-glass p-3 p-md-4">
+            {% if meals|length == 0 %}
+              <div class="alert alert-warning mb-0">
+                No meals matched the rules. Try a different meal type or relax the constraints.
+              </div>
+            {% else %}
+            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+              {% for m in meals %}
+              <div class="col">
+                <div class="card rec-card h-100 shadow-sm">
+                  <div class="card-body d-flex flex-column">
+                    <h5 class="card-title mb-2">{{ m.name }}</h5>
+                    <p class="mb-2 text-muted small">{{ m.meal_type|capitalize }}</p>
+
+                    <div class="mb-2 d-flex flex-wrap gap-1">
+                    <span class="badge badge-kcal">{{ "%.0f"|format(m.calories_kcal) }} kcal</span>
+                    <span class="badge badge-protein">Protein {{ "%.1f"|format(m.protein_g) }} g</span>
+                    <span class="badge badge-carbs">Carbs {{ "%.1f"|format(m.carbs_g) }} g</span>
+                    <span class="badge badge-fat">Fat {{ "%.1f"|format(m.fat_g) }} g</span>
+                    <span class="badge badge-sodium">Na {{ "%.0f"|format(m.sodium_mg) }} mg</span>
+                    </div>
+
+
+                    {% if m.allergens and m.allergens|length > 0 %}
+                      <p class="mb-1">
+                        <small class="text-danger fw-semibold">Allergens:</small>
+                        <small class="text-danger">{{ m.allergens|join(", ") }}</small>
+                      </p>
+                    {% else %}
+                      <p class="mb-1">
+                        <small class="text-muted">No allergens listed</small>
+                      </p>
+                    {% endif %}
+
+                    {% if reasons and reasons.get(m.meal_id) %}
+                      <p class="mt-auto mb-0 small text-muted">
+                        <i class="bi bi-info-circle"></i>
+                        {{ reasons[m.meal_id] }}
+                      </p>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+
+        </div> <!-- /.rec-content -->
+      </div>   <!-- /.rec-shell -->
+    </div>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,459 @@
+/* ---- App-wide tweaks ---- */
+body { background-color: #d5e1ed; }
+
+/* brand */
+.navbar-brand { font-weight: 700; letter-spacing: .2px; }
+
+/* active link highlight */
+.navbar .nav-link.active { color: #fff; font-weight: 600; }
+
+/* card polish */
+.card { border: 0; border-radius: 1rem; }
+.card .badge { margin-right: .25rem; }
+
+/* footer */
+.app-footer { color: #6c757d; font-size: .9rem; }
+
+/* toast position */
+.toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 1080; }
+
+/* ---------- HERO LANDING ---------- */
+.hero {
+  position: relative;
+  min-height: 72vh;
+  display: grid;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(1200px 600px at 20% 20%, rgba(255,255,255,0.10), transparent 60%),
+    linear-gradient(135deg, #6f42c1 0%, #7b5cff 30%, #8a63ff 60%, #a85dff 100%);
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* Adjustable dark overlay on top of the background image */
+  background:
+    linear-gradient(
+      rgba(0, 0, 0, 0.55),
+      rgba(0, 0, 0, 0.35)
+    ),
+    var(--hero-image, url("../img/seniors.jpg"));
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: brightness(0.95) saturate(1.05);
+  z-index: 0;
+}
+
+.hero-inner {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0,0,0,.35);
+}
+
+.hero h1 {
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+.hero .lead {
+  max-width: 56ch;
+  opacity: .95;
+}
+
+/* CTA input group */
+.hero .input-group .form-control {
+  border-radius: 999px 0 0 999px;
+  padding: .75rem 1rem;
+  border: 0;
+}
+.hero .input-group .btn {
+  border-radius: 0 999px 999px 0;
+  padding: .75rem 1.25rem;
+  font-weight: 600;
+}
+
+/* decorative wave */
+.wave {
+  position: absolute; left: 0; right: 0; bottom: -1px; height: 90px;
+  fill: #f8f9fa;
+  z-index: 1;
+}
+
+/* feature cards */
+.feature-card {
+  border-radius: 1rem;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.feature-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 1rem 2rem rgba(24,24,60,.08);
+}
+
+.bg-orange {
+  background-color: #fd7e14 !important; /* Bootstrap orange */
+  color: #212529 !important;
+}
+
+/* --- Dashboard layout tweaks --- */
+.dash-wrap { min-height: calc(100vh - 56px); }
+.dash-sidebar {
+  background: linear-gradient(180deg,#5542c1 0%, #5a35a1 100%);
+  color:#fff;
+  min-height:100%;
+  padding:1rem .75rem 2rem;
+  position: sticky; top:56px;
+  border-top-right-radius:.75rem;
+  /* wider sidebar */
+  min-width: 280px;
+}
+/* === Force white / bright text inside purple sidebar === */
+.dash-sidebar,
+.dash-sidebar * {
+  color: #fff !important;
+}
+
+.dash-sidebar .text-white-50 {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Sidebar links hover state */
+.dash-nav a:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Sidebar active link */
+.dash-nav a.active {
+  background: rgba(255, 255, 255, 0.3);
+  font-weight: 600;
+  color: #fff !important;
+}
+
+/* Sidebar stat box text contrast */
+.sb-stat {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* Sidebar icons */
+.dash-nav i {
+}
+
+/* small stat pill in sidebar */
+.sb-stat {
+  background: rgba(247, 246, 246, 0.12);
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:.6rem;
+  padding:.6rem .75rem;
+  font-weight:600;
+}
+
+/* compact filter controls on one row */
+.filters-compact .form-control,
+.filters-compact .form-select { height: 36px; padding:.25rem .5rem; font-size:.9rem; }
+.filters-compact .btn { height:36px; padding:.25rem .6rem; }
+
+/* table / icon buttons */
+.table.card-table { background:#fff; border-radius:.75rem; overflow:hidden; box-shadow:0 .5rem 1rem rgba(0,0,0,.05); }
+.btn-icon { padding:.35rem .5rem; border-radius:.5rem; }
+.btn-icon i { font-size:1rem; }
+
+/* avatar initials */
+.avatar { width:36px; height:36px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; color:#fff; font-weight:700; background:#7b5cff; }
+
+/* residents page background image */
+/* ===== Residents page background with overlay ===== */
+.page-residents-bg {
+  position: relative;
+  background:
+    url("../img/seniors.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  min-height: calc(100vh - 56px);
+}
+
+/* dark overlay layer for contrast */
+.page-residents-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+      rgba(15, 15, 25, 0.55),
+      rgba(15, 15, 25, 0.35)
+    );
+  z-index: 0; /* sits behind content */
+}
+
+/* Ensure everything inside sits above the overlay */
+.page-residents-bg > .row { position: relative; z-index: 1; }
+
+/* ===== Center the main content column ===== */
+.residents-content {
+  max-width: 1200px;     /* center width cap */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* keep the wider sidebar, but let the layout breathe on large screens */
+@media (min-width: 992px) {
+  .dash-sidebar { min-width: 300px; }
+}
+
+/* ===== Subtle glass effect for tables/cards over image ===== */
+.glass {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 .5rem 1rem rgba(0,0,0,.08);
+  border-radius: .75rem;
+  backdrop-filter: blur(4px); /* supported browsers get a nice blur */
+}
+
+/* Make our data table “glass” */
+.table.card-table { background: transparent; }
+.table-wrap.glass { padding: .5rem; }
+
+/* Keep filters compact (same row) */
+.filters-compact .form-control,
+.filters-compact .form-select { height: 36px; padding:.25rem .5rem; font-size:.9rem; }
+.filters-compact .btn { height:36px; padding:.25rem .6rem; }
+
+/* ================= Residents Page Layout ================= */
+
+/* Full-height area with background + dark overlay for contrast */
+.dash-wrap {
+  min-height: calc(100vh - 56px); /* minus navbar height */
+}
+
+.page-residents-bg {
+  position: relative;
+  background:
+    linear-gradient(rgba(15, 15, 25, 0.55), rgba(15, 15, 25, 0.35)),
+    url("../img/seniors.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+/* keep content above the overlay */
+.page-residents-bg > .row {
+  position: relative;
+  z-index: 1;
+}
+
+/* Center the main residents content (right-hand side) */
+.residents-shell {
+  min-height: calc(100vh - 56px);
+  display: flex;
+  align-items: center;         /* vertical centering */
+  justify-content: center;     /* horizontal centering */
+  padding: 1.5rem 0;
+}
+
+.residents-content {
+  width: 100%;
+  max-width: 1100px;           /* controls how wide the centre block is */
+}
+
+/* “Glass” panels so text is readable on the background */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(4px);
+  border-radius: 0.75rem;
+  box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.08);
+}
+
+/* Make table itself transparent inside its glass wrapper */
+.table.card-table {
+  background: transparent;
+}
+
+/* Compact filters so everything fits on one row */
+.filters-compact .form-control,
+.filters-compact .form-select {
+  height: 36px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.9rem;
+}
+.filters-compact .btn {
+  height: 36px;
+  padding: 0.25rem 0.6rem;
+}
+
+/* Sidebar width + make all text white for contrast */
+.dash-sidebar {
+  background: linear-gradient(180deg,#0d6efd 0%, #0d6efd 100%);
+  color: #fff;
+  min-height: 100%;
+  padding: 1rem 0.75rem 2rem;
+  position: sticky;
+  top: 56px;
+  border-top-right-radius: 0.75rem;
+  min-width: 280px;
+}
+
+.dash-sidebar,
+.dash-sidebar * {
+  color: #fff !important;
+}
+
+.dash-nav a {
+  background: transparent !important;
+  color: rgba(255,255,255,0.9) !important;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+}
+.dash-nav a:hover {
+  background: transparent !important;
+  color: #fff !important;
+}
+
+/* Active link: remove white box, use a slim bar indicator */
+.dash-nav a.active {
+  background: transparent !important;
+  position: relative;
+  color: #fff !important;
+  font-weight: 600;
+}
+.dash-nav a.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: #fff;
+  border-radius: 2px;
+}
+
+/* Sidebar small stat box */
+.sb-stat {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  font-weight: 600;
+}
+
+/* Avatar initials */
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  background: #7b5cff;
+}
+
+/* BMI badge helper (if you use it) */
+.badge-soft {
+  --bg: #eaf4ff;
+  --fg: #0d6efd;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid rgba(13,110,253,0.15);
+  padding: 0.4rem 0.6rem;
+  font-weight: 600;
+}
+
+/* tiny icon buttons */
+.btn-icon {
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.5rem;
+}
+.btn-icon i {
+  font-size: 1rem;
+}
+/* ================= Recommendation Page Layout ================= */
+
+.rec-bg {
+  position: relative;
+  background:
+    linear-gradient(rgba(15, 15, 25, 0.55), rgba(15, 15, 25, 0.35)),
+    url("../img/seniors.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  min-height: calc(100vh - 56px);
+}
+
+.rec-bg > .row {
+  position: relative;
+  z-index: 1;
+}
+
+/* center the recommendation content similar to residents */
+.rec-shell {
+  min-height: calc(100vh - 56px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 0;
+}
+
+.rec-content {
+  width: 100%;
+  max-width: 1200px;
+}
+
+/* use same glass style as on residents */
+.rec-glass {
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(4px);
+  border-radius: 0.75rem;
+  box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.1);
+}
+
+/* slightly round recommendation cards */
+.rec-card {
+  border-radius: 1rem;
+  border: 0;
+}
+
+/* ================= Nutrition Badge Colours ================= */
+
+/* Calories = orange */
+.badge-kcal {
+  background: #ffb46b !important;
+  color: #5a3000 !important;
+  font-weight: 600;
+}
+
+/* Protein = green */
+.badge-protein {
+  background: #9be7c4 !important;
+  color: #084b2b !important;
+  font-weight: 600;
+}
+
+/* Carbs = blue */
+.badge-carbs {
+  background: #9acbff !important;
+  color: #083b6b !important;
+  font-weight: 600;
+}
+
+/* Fat = pink */
+.badge-fat {
+  background: #ffb5d0 !important;
+  color: #6d0030 !important;
+  font-weight: 600;
+}
+
+/* Sodium = red (because sodium sensitivity is important in care settings) */
+.badge-sodium {
+  background: #ff9b9b !important;
+  color: #7a0000 !important;
+  font-weight: 700;
+}
+
