@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}Daily Plan — {{ plan_date }}{% endblock %}
+{% block content %}
+
+<div class="container-fluid py-4">
+  <div class="row">
+    <div class="col-12">
+
+      <!-- Header -->
+      <div class="card shadow-sm mb-3">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+            <div>
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <h3 class="mb-0">Daily Plan</h3>
+                <span class="badge text-bg-light border">
+                  {{ plan_date }}
+                </span>
+              </div>
+
+              <div class="text-muted small">
+                {% if plan %}
+                  Status:
+                  {% if plan.status == "fulfilled" %}
+                    <span class="badge bg-success">Fulfilled</span>
+                  {% else %}
+                    <span class="badge bg-warning text-dark">Draft</span>
+                  {% endif %}
+                  · Rules:
+                  {% if plan.strict %}
+                    <span class="badge bg-info text-dark">Strict</span>
+                  {% else %}
+                    <span class="badge bg-secondary">Relaxed</span>
+                  {% endif %}
+                {% else %}
+                  <span class="badge bg-secondary">Not generated</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2">
+              <a class="btn btn-outline-secondary" href="{{ url_for('daily_plan_new') }}">
+                <i class="bi bi-plus-circle"></i> New / Generate
+              </a>
+
+              <a class="btn btn-outline-secondary" href="{{ url_for('residents_list') }}">
+                <i class="bi bi-people"></i> Residents
+              </a>
+
+              {% if plan %}
+                <a class="btn btn-dark" href="{{ url_for('daily_plan_pdf', date=plan_date) }}">
+                  <i class="bi bi-filetype-pdf"></i> Export PDF
+                </a>
+              {% endif %}
+
+              {% if plan and plan.status != "fulfilled" %}
+              <form method="post" action="{{ url_for('daily_plan_fulfill') }}" class="d-inline">
+                <input type="hidden" name="plan_date" value="{{ plan_date }}">
+                <button class="btn btn-success">
+                  <i class="bi bi-check2-circle"></i> Mark as fulfilled
+                </button>
+              </form>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Quick date jump -->
+          <hr class="my-3">
+
+          <form method="get" action="{{ url_for('daily_plan_view') }}" class="row g-2 align-items-end">
+            <div class="col-auto">
+              <label class="form-label mb-1 small text-muted">Jump to date</label>
+              <input type="date" class="form-control" name="date" value="{{ plan_date }}">
+            </div>
+            <div class="col-auto">
+              <button class="btn btn-primary">
+                <i class="bi bi-search"></i> View
+              </button>
+            </div>
+            <div class="col-12">
+              <div class="small text-muted">
+                Tip: Generate a plan from <strong>New / Generate</strong>, then export PDF for the kitchen.
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {% if not plan %}
+        <div class="alert alert-warning">
+          No plan exists for <strong>{{ plan_date }}</strong>.
+          Click <strong>New / Generate</strong> to create one.
+        </div>
+      {% else %}
+
+        {% if items|length == 0 %}
+          <div class="alert alert-warning">Plan exists but has no items. Try regenerating.</div>
+        {% else %}
+
+          <!-- Table -->
+          <div class="card shadow-sm">
+            <div class="card-header bg-white">
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="fw-semibold">
+                  Plan Items
+                  <span class="text-muted fw-normal">({{ items|length }})</span>
+                </div>
+
+                {% if plan.status == "fulfilled" %}
+                  <span class="badge bg-success">
+                    <i class="bi bi-lock-fill"></i> Locked (fulfilled)
+                  </span>
+                {% else %}
+                  <span class="badge bg-warning text-dark">
+                    <i class="bi bi-pencil-square"></i> Editable (draft)
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th style="min-width: 190px;">Resident</th>
+                      <th style="min-width: 110px;">Meal type</th>
+                      <th style="min-width: 260px;">Recommended meal</th>
+                      <th style="min-width: 130px;">ML score</th>
+                      <th style="min-width: 300px;">Reason</th>
+                      <th style="min-width: 330px;">Actions</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {% for it in items %}
+                      <tr>
+                        <!-- Resident -->
+                        <td>
+                          {% if it.resident %}
+                            <div class="fw-semibold">{{ it.resident.name }}</div>
+                            <div class="text-muted small">
+                              Age {{ it.resident.age }}
+                              {% if it.resident.diet_type and it.resident.diet_type != "none" %}
+                                · Diet: {{ it.resident.diet_type|capitalize }}
+                              {% endif %}
+                            </div>
+                          {% else %}
+                            <div class="text-muted">Unknown resident ({{ it.resident_id }})</div>
+                          {% endif %}
+                        </td>
+
+                        <!-- Meal type -->
+                        <td class="text-capitalize">
+                          <span class="badge text-bg-light border">
+                            {{ it.meal_type }}
+                          </span>
+                        </td>
+
+                        <!-- Meal -->
+                        <td>
+                          {% if it.meal %}
+                            <div class="fw-semibold">
+                              {{ it.meal.name }}
+                              {% if it.is_overridden %}
+                                <span class="badge bg-info text-dark ms-2">Overridden</span>
+                              {% endif %}
+                            </div>
+                            <div class="text-muted small">
+                              {{ it.meal.meal_type|capitalize }}
+                              · {{ "%.0f"|format(it.meal.calories_kcal) }} kcal
+                              · Protein {{ "%.1f"|format(it.meal.protein_g) }}g
+                              · Na {{ "%.0f"|format(it.meal.sodium_mg) }}mg
+                            </div>
+
+                            {% if it.is_overridden and it.original_meal %}
+                              <div class="text-muted small mt-1">
+                                Original: <span class="text-decoration-line-through">{{ it.original_meal.name }}</span>
+                              </div>
+                            {% endif %}
+                          {% else %}
+                            <div class="text-muted">No meal matched rules</div>
+                          {% endif %}
+                        </td>
+
+                        <!-- ML score -->
+                        <td>
+                          {% if it.ml_score is not none %}
+                            <span class="badge bg-dark">
+                              {{ "%.4f"|format(it.ml_score) }}
+                            </span>
+                          {% else %}
+                            <span class="text-muted">—</span>
+                          {% endif %}
+                        </td>
+
+                        <!-- Reason -->
+                        <td>
+                          {% if it.reason %}
+                            <span class="text-muted small">{{ it.reason }}</span>
+                          {% else %}
+                            <span class="text-muted small">—</span>
+                          {% endif %}
+                        </td>
+
+                        <!-- Actions -->
+                        <td>
+                          <div class="d-flex flex-wrap gap-2 align-items-center">
+
+                            {% if it.meal %}
+                              <form method="post" action="{{ url_for('daily_plan_item_feedback') }}">
+                                <input type="hidden" name="item_id" value="{{ it.item_id }}">
+                                <input type="hidden" name="feedback" value="liked">
+                                <button class="btn btn-sm btn-outline-success">
+                                  <i class="bi bi-hand-thumbs-up"></i>
+                                </button>
+                              </form>
+
+                              <form method="post" action="{{ url_for('daily_plan_item_feedback') }}">
+                                <input type="hidden" name="item_id" value="{{ it.item_id }}">
+                                <input type="hidden" name="feedback" value="disliked">
+                                <button class="btn btn-sm btn-outline-danger">
+                                  <i class="bi bi-hand-thumbs-down"></i>
+                                </button>
+                              </form>
+                            {% endif %}
+
+                            <div class="vr d-none d-md-block"></div>
+
+                            {% if plan.status != "fulfilled" %}
+                              <form method="post" action="{{ url_for('daily_plan_override') }}" class="d-flex gap-2 align-items-center">
+                                <input type="hidden" name="item_id" value="{{ it.item_id }}">
+                                <input
+                                  type="text"
+                                  class="form-control form-control-sm"
+                                  name="override_meal_id"
+                                  placeholder="Override meal_id"
+                                  style="width: 170px;"
+                                >
+                                <button class="btn btn-sm btn-outline-primary">
+                                  Override
+                                </button>
+                              </form>
+                            {% else %}
+                              <span class="text-muted small">
+                                <i class="bi bi-lock"></i> Locked
+                              </span>
+                            {% endif %}
+
+                          </div>
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="alert alert-info mt-3 mb-0">
+            <strong>Tip:</strong> Export PDF gives you a clean order sheet for the kitchen.
+          </div>
+
+        {% endif %}
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}
