@@ -53,6 +53,7 @@
                   <option value="calories_kcal" {% if sort_key=='calories_kcal' %}selected{% endif %}>Calories</option>
                   <option value="protein_g" {% if sort_key=='protein_g' %}selected{% endif %}>Protein</option>
                   <option value="sodium_mg" {% if sort_key=='sodium_mg' %}selected{% endif %}>Sodium</option>
+                  <option value="ml_score" {% if sort_key=='ml_score' %}selected{% endif %}>ML Score</option>
                 </select>
               </div>
               <div class="col-md-2">
@@ -94,13 +95,13 @@
                     <p class="mb-2 text-muted small">{{ m.meal_type|capitalize }}</p>
 
                     <div class="mb-2 d-flex flex-wrap gap-1">
-                    <span class="badge badge-kcal">{{ "%.0f"|format(m.calories_kcal) }} kcal</span>
-                    <span class="badge badge-protein">Protein {{ "%.1f"|format(m.protein_g) }} g</span>
-                    <span class="badge badge-carbs">Carbs {{ "%.1f"|format(m.carbs_g) }} g</span>
-                    <span class="badge badge-fat">Fat {{ "%.1f"|format(m.fat_g) }} g</span>
-                    <span class="badge badge-sodium">Na {{ "%.0f"|format(m.sodium_mg) }} mg</span>
+                      <span class="badge badge-kcal">{{ "%.0f"|format(m.calories_kcal) }} kcal</span>
+                      <span class="badge badge-protein">Protein {{ "%.1f"|format(m.protein_g) }} g</span>
+                      <span class="badge badge-carbs">Carbs {{ "%.1f"|format(m.carbs_g) }} g</span>
+                      <span class="badge badge-fat">Fat {{ "%.1f"|format(m.fat_g) }} g</span>
+                      <span class="badge badge-sodium">Na {{ "%.0f"|format(m.sodium_mg) }} mg</span>
+                      <span class="badge bg-primary text-white">ML Score: {{ "%.2f"|format(m.ml_score or 0.0) }}</span>
                     </div>
-
 
                     {% if m.allergens and m.allergens|length > 0 %}
                       <p class="mb-1">
