@@ -7,11 +7,8 @@ import sqlite3
 from typing import Optional
 from datetime import datetime, date, timedelta
 import io
+import hashlib  # ✅ NEW: for stable deterministic seeds
 
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from flask import send_file
-from typing import Optional  # (safe to keep if you already use Optional anywhere)
 from .pdf_utils import build_daily_plan_pdf
 
 from ..config import MEALS_CSV, RESIDENTS_CSV
@@ -95,6 +92,17 @@ def _parse_date_yyyy_mm_dd(s: str) -> str:
 
 
 # ---------- utilities ----------
+
+def stable_seed(*parts, mod: int = 2**32) -> int:
+    """
+    Deterministic seed derived from arbitrary values. Stable across runs/machines.
+    (Replaces Python's built-in hash(), which may vary between runs.)
+    """
+    s = "|".join("" if p is None else str(p) for p in parts)
+    digest = hashlib.sha256(s.encode("utf-8")).digest()
+    # Use first 8 bytes (64-bit) then mod to fit seed range
+    return int.from_bytes(digest[:8], "big") % mod
+
 
 def count_csv_rows(path):
     try:
@@ -300,14 +308,16 @@ def _generate_daily_plan_items(plan_id: str, plan_date: str, strict: bool, seed_
     cur = conn.cursor()
     now_iso = datetime.utcnow().isoformat()
 
-    base_seed = abs(hash(seed_salt)) % (2**32)
+    # ✅ CHANGED: stable base seed
+    base_seed = stable_seed(seed_salt)
 
     for resident in residents:
         used_today = set()
         recent = _recent_meal_ids_for_resident(resident.resident_id, days_back=7)
 
         for idx, mt in enumerate(MEAL_TYPES_FOR_DAY):
-            seed = (base_seed + abs(hash(resident.resident_id)) + abs(hash(mt)) + idx) % (2**32)
+            # ✅ CHANGED: stable per resident/meal_type seed
+            seed = stable_seed(seed_salt, resident.resident_id, mt, idx, base_seed)
             exclude = set(used_today) | set(recent)
 
             best_meal, reason, ml_score = _pick_top_meal_for_resident_mealtype(
@@ -505,6 +515,7 @@ def residents_list():
         limit=limit,
     )
 
+
 @app.route("/daily_plan/pdf", methods=["GET"])
 def daily_plan_pdf():
     """
@@ -560,6 +571,7 @@ def daily_plan_pdf():
         as_attachment=True,
         download_name=filename,
     )
+
 
 @app.route("/residents/new", methods=["GET", "POST"])
 def residents_new():
@@ -624,7 +636,6 @@ def residents_edit(resident_id):
 
 @app.route("/residents/<resident_id>/recommendations")
 def resident_recommendations(resident_id):
-    # Kept as-is (you may still want this page for debugging / individual view)
     meal_type = request.args.get("meal_type")
     sort_key = request.args.get("sort", "ml_score")
     view_mode = request.args.get("view", "cards")
@@ -808,7 +819,6 @@ def daily_plan_generate():
             allow_regenerate=regenerate,
         )
 
-        # ✅ DUPLICATION FIX:
         # Only generate items if:
         # - plan is newly created OR
         # - regenerate was checked (items cleared)
@@ -983,8 +993,6 @@ def daily_plan_override():
 # ==========================================================
 # NEW: PDF EXPORT
 # ==========================================================
-
-
 
 
 if __name__ == "__main__":
