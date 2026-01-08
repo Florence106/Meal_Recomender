@@ -1,4 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
+import os
+from datetime import timedelta
 import pandas as pd
 from uuid import uuid4
 from pathlib import Path
@@ -8,6 +10,11 @@ from typing import Optional
 from datetime import datetime, date, timedelta
 import io
 import hashlib  # ✅ NEW: for stable deterministic seeds
+
+from flask import session
+from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
+
 
 from .pdf_utils import build_daily_plan_pdf
 
@@ -20,6 +27,19 @@ TEMPLATES = Path(__file__).resolve().parent / "templates"
 STATIC = Path(__file__).resolve().parent / "static"
 app = Flask(__name__, template_folder=str(TEMPLATES), static_folder=str(STATIC))
 app.secret_key = "dev-secret"
+import os
+STAFF_REGISTRATION_CODE = os.getenv("STAFF_REGISTRATION_CODE", "DEV_CODE")
+
+# Use env var in real deployment; keep fallback for local dev
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret")
+
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,      # JS can't read session cookie
+    SESSION_COOKIE_SAMESITE="Lax",     # protects against CSRF in most cases
+    SESSION_COOKIE_SECURE=False,       # set True when using HTTPS
+    PERMANENT_SESSION_LIFETIME=timedelta(minutes=30),  # default session duration
+)
+
 
 # -----------------------------
 # Daily plan DB (SQLite)
@@ -89,6 +109,66 @@ def _parse_date_yyyy_mm_dd(s: str) -> str:
     s = (s or "").strip()
     dt = datetime.strptime(s, "%Y-%m-%d").date()
     return dt.isoformat()
+
+
+# -----------------------------
+# Auth DB (SQLite) - Staff users
+# -----------------------------
+AUTH_DB = Path("data/auth.db")
+
+def _ensure_auth_db():
+    AUTH_DB.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(AUTH_DB)
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS staff_users (
+            user_id TEXT PRIMARY KEY,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def _auth_db():
+    _ensure_auth_db()
+    return sqlite3.connect(AUTH_DB)
+
+
+def login_required(view_func):
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        if not session.get("user_id"):
+            # send user back to the page they wanted after login
+            return redirect(url_for("login", next=request.url))
+        return view_func(*args, **kwargs)
+    return wrapper
+
+# ---------- staff user management ----------
+
+def ensure_default_user():
+    """
+    Creates a default staff user if none exists.
+    Change the password after first login.
+    """
+    conn = _auth_db()
+    cur = conn.cursor()
+
+    # Check if any user exists
+    cur.execute("SELECT COUNT(*) FROM staff_users")
+    count = cur.fetchone()[0]
+
+    if count == 0:
+        username = "staff"
+        password = "staff123"  # CHANGE after first use
+        cur.execute(
+            "INSERT INTO staff_users (user_id, username, password_hash, created_at) VALUES (?, ?, ?, ?)",
+            (str(uuid4()), username, generate_password_hash(password), datetime.utcnow().isoformat())
+        )
+        conn.commit()
+
+    conn.close()
 
 
 # ---------- utilities ----------
@@ -407,10 +487,15 @@ def _load_daily_plan(plan_date: str):
 def home():
     meals_count = count_csv_rows(MEALS_CSV)
     residents_count = count_csv_rows(RESIDENTS_CSV)
-    return render_template("index.html", meals_count=meals_count, residents_count=residents_count)
+    return render_template(
+        "index.html",
+        meals_count=meals_count,
+        residents_count=residents_count
+    )
 
 
 @app.route("/residents")
+@login_required
 def residents_list():
     df = read_residents_df().copy()
     q = (request.args.get("q") or "").strip().lower()
@@ -517,6 +602,7 @@ def residents_list():
 
 
 @app.route("/daily_plan/pdf", methods=["GET"])
+@login_required
 def daily_plan_pdf():
     """
     Export the daily plan as a professional kitchen order sheet PDF.
@@ -572,8 +658,154 @@ def daily_plan_pdf():
         download_name=filename,
     )
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    # If already logged in, go straight to residents
+    if session.get("user_id"):
+        return redirect(url_for("residents_list"))
+
+    if request.method == "POST":
+        username = (request.form.get("username") or "").strip()
+        password = request.form.get("password") or ""
+        next_url = request.form.get("next") or url_for("residents_list")
+
+        conn = _auth_db()
+        cur = conn.cursor()
+        cur.execute("SELECT user_id, password_hash FROM staff_users WHERE username = ?", (username,))
+        row = cur.fetchone()
+        conn.close()
+
+        if not row or not check_password_hash(row[1], password):
+            flash("Invalid username or password.", "danger")
+            return render_template("login.html", next=next_url)
+        session.clear()
+   
+
+        remember = request.form.get("remember") == "1"
+        session.permanent = remember
+
+
+        session["user_id"] = row[0]
+        session["username"] = username
+        session["last_seen"] = datetime.utcnow().isoformat()
+        flash("Login successful.", "success")
+        return redirect(next_url)
+
+    # GET request
+    return render_template("login.html", next=request.args.get("next") or "")
+
+# Logout route
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    flash("Logged out successfully.", "info")
+    return redirect(url_for("login"))
+
+# ------------- Resident management routes -------------
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if session.get("user_id"):
+        return redirect(url_for("residents_list"))
+
+    if request.method == "POST":
+        username = (request.form.get("username") or "").strip()
+        password = request.form.get("password") or ""
+        password2 = request.form.get("password2") or ""
+        reg_code = (request.form.get("reg_code") or "").strip()
+
+
+        if not username or not password:
+            flash("Username and password are required.", "danger")
+            return render_template("register.html")
+
+        if password != password2:
+            flash("Passwords do not match.", "danger")
+            return render_template("register.html")
+        
+        if reg_code != STAFF_REGISTRATION_CODE:
+            flash("Invalid staff registration code.", "danger")
+            return render_template("register.html")
+
+
+        conn = _auth_db()
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                "INSERT INTO staff_users (user_id, username, password_hash, created_at) VALUES (?, ?, ?, ?)",
+                (str(uuid4()), username, generate_password_hash(password), datetime.utcnow().isoformat())
+            )
+            conn.commit()
+        except sqlite3.IntegrityError:
+            conn.close()
+            flash("That username is already taken.", "danger")
+            return render_template("register.html")
+
+        conn.close()
+        flash("Account created successfully. Please log in.", "success")
+        return redirect(url_for("login"))
+
+    return render_template("register.html")
+
+
+def _now_utc():
+    return datetime.utcnow()
+
+@app.before_request
+def enforce_session_timeout():
+    if not session.get("user_id"):
+        return
+
+    IDLE_MINUTES = 20
+    last_seen = session.get("last_seen")
+    now = _now_utc()
+
+    if last_seen:
+        try:
+            last_seen_dt = datetime.fromisoformat(last_seen)
+            if now - last_seen_dt > timedelta(minutes=IDLE_MINUTES):
+                session.clear()
+                flash("Session expired due to inactivity. Please log in again.", "warning")
+                return redirect(url_for("login", next=request.url))
+        except Exception:
+            session.clear()
+            flash("Session error. Please log in again.", "warning")
+            return redirect(url_for("login"))
+
+    session["last_seen"] = now.isoformat()
+
+@app.before_request
+def enforce_session_timeout():
+    # Only enforce for logged-in users
+    if not session.get("user_id"):
+        return
+
+    # Idle timeout in minutes
+    IDLE_MINUTES = 20
+    last_seen = session.get("last_seen")
+
+    now = _now_utc()
+
+    if last_seen:
+        try:
+            last_seen_dt = datetime.fromisoformat(last_seen)
+            if now - last_seen_dt > timedelta(minutes=IDLE_MINUTES):
+                session.clear()
+                flash("Session expired due to inactivity. Please log in again.", "warning")
+                return redirect(url_for("login", next=request.url))
+        except Exception:
+            # If parsing fails, reset safely
+            session.clear()
+            flash("Session error. Please log in again.", "warning")
+            return redirect(url_for("login"))
+
+    # Refresh activity timestamp on every request
+    session["last_seen"] = now.isoformat()
+
+# Resident management routes
 
 @app.route("/residents/new", methods=["GET", "POST"])
+@login_required
 def residents_new():
     if request.method == "POST":
         resident_id = str(uuid4())
@@ -603,6 +835,7 @@ def residents_new():
 
 
 @app.route("/residents/<resident_id>/edit", methods=["GET", "POST"])
+@login_required
 def residents_edit(resident_id):
     df = read_residents_df()
     row = df[df["resident_id"] == resident_id]
@@ -635,6 +868,7 @@ def residents_edit(resident_id):
 
 
 @app.route("/residents/<resident_id>/recommendations")
+@login_required
 def resident_recommendations(resident_id):
     meal_type = request.args.get("meal_type")
     sort_key = request.args.get("sort", "ml_score")
@@ -703,6 +937,7 @@ def resident_recommendations(resident_id):
 
 
 @app.route("/feedback", methods=["POST"])
+@login_required
 def submit_feedback():
     try:
         data = request.get_json()
@@ -738,6 +973,7 @@ def submit_feedback():
 
 
 @app.route("/residents/<resident_id>/delete", methods=["POST"])
+@login_required
 def residents_delete(resident_id):
     df = read_residents_df()
     new_df = df[df["resident_id"] != resident_id]
@@ -754,6 +990,7 @@ def residents_delete(resident_id):
 # ==========================================================
 
 @app.route("/daily_plan", methods=["GET"])
+@login_required
 def daily_plan_view():
     plan_date = request.args.get("date") or date.today().isoformat()
     try:
@@ -795,12 +1032,14 @@ def daily_plan_view():
 
 
 @app.route("/daily_plan/new", methods=["GET"])
+@login_required
 def daily_plan_new():
     default_date = date.today().isoformat()
     return render_template("daily_plan_new.html", default_date=default_date)
 
 
 @app.route("/daily_plan/generate", methods=["POST"])
+@login_required
 def daily_plan_generate():
     plan_date_raw = request.form.get("plan_date") or ""
     strict = request.form.get("strict", "1") != "0"
@@ -840,6 +1079,7 @@ def daily_plan_generate():
 
 
 @app.route("/daily_plan/fulfill", methods=["POST"])
+@login_required
 def daily_plan_fulfill():
     plan_date_raw = request.form.get("plan_date") or ""
     try:
@@ -875,6 +1115,7 @@ def daily_plan_fulfill():
 
 
 @app.route("/daily_plan/item_feedback", methods=["POST"])
+@login_required
 def daily_plan_item_feedback():
     item_id = request.form.get("item_id") or ""
     feedback = (request.form.get("feedback") or "").strip().lower()
@@ -947,6 +1188,7 @@ def daily_plan_item_feedback():
 
 
 @app.route("/daily_plan/override", methods=["POST"])
+@login_required
 def daily_plan_override():
     item_id = request.form.get("item_id") or ""
     override_meal_id = (request.form.get("override_meal_id") or "").strip()
@@ -996,4 +1238,6 @@ def daily_plan_override():
 
 
 if __name__ == "__main__":
+    ensure_default_user()
     app.run(debug=True)
+
