@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h3 class="mb-3">Create staff account</h3>
+
+<form method="post" class="row g-3">
+  <div class="col-md-6">
+    <label class="form-label">Username *</label>
+    <input name="username" class="form-control" required autocomplete="username">
+  </div>
+
+  <div class="col-md-6">
+    <label class="form-label">Password *</label>
+    <input name="password" type="password" class="form-control" required autocomplete="new-password">
+  </div>
+
+  <div class="col-md-6">
+    <label class="form-label">Confirm password *</label>
+    <input name="password2" type="password" class="form-control" required autocomplete="new-password">
+  </div>
+
+  <div class="col-md-6">
+    <label class="form-label">Staff registration code *</label>
+    <input name="reg_code" class="form-control" required>
+  </div>
+
+  <div class="col-12">
+    <button class="btn btn-success">Register</button>
+    <a href="{{ url_for('login') }}" class="btn btn-secondary">Back to login</a>
+  </div>
+
+  <div class="col-12 mt-2">
+    <small class="text-muted">
+      Already registered?
+      <a href="{{ url_for('login') }}">Go to login</a>
+    </small>
+  </div>
+</form>
+
+{% endblock %}

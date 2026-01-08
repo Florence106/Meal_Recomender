@@ -1,10 +1,6 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field, validator
-
-
 import math
-from typing import List, Optional
-from pydantic import BaseModel, Field, validator
 
 class Resident(BaseModel):
     resident_id: str
@@ -25,7 +21,6 @@ class Resident(BaseModel):
 
     @validator("allergies", "conditions", pre=True)
     def split_comma_separated(cls, v):
-        # Treat None/NaN as empty list
         if v is None:
             return []
         if isinstance(v, float) and math.isnan(v):
@@ -38,7 +33,6 @@ class Resident(BaseModel):
 
     @validator("cultural_prefs", "sex", "texture", "diet_type", pre=True)
     def coerce_strings(cls, v):
-        # Convert NaN to None; strip strings
         if v is None:
             return None
         if isinstance(v, float) and math.isnan(v):
@@ -56,11 +50,10 @@ class Resident(BaseModel):
             return round(weight / (h * h), 1)
         return None
 
-
 class Meal(BaseModel):
     meal_id: str
     name: str
-    meal_type: str   # breakfast, lunch, dinner, snack
+    meal_type: str  # breakfast, lunch, dinner, snack
 
     tags: List[str] = Field(default_factory=list)
     allergens: List[str] = Field(default_factory=list)
@@ -71,27 +64,25 @@ class Meal(BaseModel):
     fat_g: float
     sodium_mg: float
 
+    ml_score: Optional[float] = None  # Added for machine learning prediction scoring
+
     @validator("tags", "allergens", pre=True)
     def split_tags(cls, v):
-        # Treat None/NaN as empty list
         if v is None:
             return []
         if isinstance(v, float) and math.isnan(v):
             return []
-        # If it's already a list, keep it
         if isinstance(v, list):
             return [str(item).strip().lower() for item in v if str(item).strip()]
-        # If it's a string like "a,b,c", split it
         if isinstance(v, str):
             return [item.strip().lower() for item in v.split(",") if item.strip()]
-        # Fallback: coerce to single-item list
         return [str(v).strip().lower()] if str(v).strip() else []
 
 class Interaction(BaseModel):
     interaction_id: str
     resident_id: str
     meal_id: str
-    date: str  # we can parse to datetime later
-    rating: Optional[int] = None     # 1–5 rating
+    date: str  # can be converted to datetime if needed
+    rating: Optional[int] = None  # 1–5 rating
     eaten_fraction: Optional[float] = None  # e.g. 0.8 if 80% eaten
     comments: Optional[str] = None

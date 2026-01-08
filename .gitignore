@@ -1,0 +1,43 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+*.sqlite3
+
+# Virtual environment
+venv/
+.env/
+.venv/
+
+# VS Code
+.vscode/
+
+# Jupyter / temp
+.ipynb_checkpoints/
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Data (keep small processed CSVs, ignore heavy raw files)
+data/raw/
+data/interim/
+
+# Model artefacts
+*.joblib
+*.pkl
+
+# Databases
+*.db
+
+# Data files (if generated)
+data/
+
+# ML artifacts (if trained models)
+model/
+
+template/
+

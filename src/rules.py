@@ -26,10 +26,17 @@ UK_GUIDELINES = {
 # --- Individual filters ---
 
 def filter_meal_type(meals: List[Meal], meal_type: Optional[str]) -> List[Meal]:
+    """
+    IMPORTANT DIVERSITY FIX:
+    If meal_type is requested but your dataset has few/no meals with that meal_type,
+    we DO NOT want to return empty and fall into repetitive fallback.
+    Instead we "soft filter": try meal_type; if none match, return original meals.
+    """
     if not meal_type:
         return meals
     mt = meal_type.lower()
-    return [m for m in meals if m.meal_type.lower() == mt]
+    filtered = [m for m in meals if (m.meal_type or "").lower() == mt]
+    return filtered if filtered else meals
 
 
 def filter_allergies(resident: Resident, meals: List[Meal]) -> List[Meal]:
@@ -71,13 +78,10 @@ def filter_conditions(resident: Resident, meals: List[Meal]) -> List[Meal]:
 
       - diabetes: per-meal carbohydrate cap
       - hypertension: stricter sodium cap
-
-    These are safety filters before any personalisation.
     """
     conds = {c.lower() for c in (resident.conditions or [])}
     filtered = meals
 
-    # Diabetes → apply carbohydrate cap
     if "diabetes" in conds:
         max_carbs = UK_GUIDELINES["max_carbs_diabetes"]
         filtered = [
@@ -85,7 +89,6 @@ def filter_conditions(resident: Resident, meals: List[Meal]) -> List[Meal]:
             if (m.carbs_g is None) or (m.carbs_g <= max_carbs)
         ]
 
-    # Hypertension → stricter sodium cap
     if "hypertension" in conds:
         max_na = UK_GUIDELINES["max_sodium_hypertension"]
         filtered = [
@@ -101,12 +104,6 @@ def filter_calories(
     meals: List[Meal],
     daily_fraction: float = 0.35,
 ) -> List[Meal]:
-    """
-    Cap per-meal calories.
-
-    - If resident has a personal daily calorie target, use a fraction of that.
-    - Otherwise, fall back to UK_GUIDELINES["max_calories_per_meal"].
-    """
     if resident.calorie_target_kcal:
         cap = resident.calorie_target_kcal * daily_fraction
     else:
@@ -118,17 +115,16 @@ def filter_calories(
             safe.append(m)
     return safe
 
-# --- Orchestrator ---
 
 def _mifflin_st_jeor_kcal(res: Resident) -> float:
-    # Basic BMR estimate → sedentary multiplier
     if not res.weight_kg or not res.height_cm or not res.age:
-        return 1800.0  # safe default
+        return 1800.0
     if (str(res.sex).upper() == "M"):
-        bmr = 10*res.weight_kg + 6.25*res.height_cm - 5*res.age + 5
+        bmr = 10 * res.weight_kg + 6.25 * res.height_cm - 5 * res.age + 5
     else:
-        bmr = 10*res.weight_kg + 6.25*res.height_cm - 5*res.age - 161
-    return bmr * 1.2  # sedentary factor
+        bmr = 10 * res.weight_kg + 6.25 * res.height_cm - 5 * res.age - 161
+    return bmr * 1.2
+
 
 def apply_basic_rules(
     resident: Resident,
@@ -138,43 +134,25 @@ def apply_basic_rules(
     strict: bool = True,
     explain: bool = False,
 ):
-    """
-    Apply simple, explainable rule filters.
-
-    - Filters by meal_type (if given)
-    - Removes meals containing recorded allergens
-    - Respects diet type where tags exist (vegetarian/vegan/halal/kosher)
-    - Applies condition-based thresholds using UK_GUIDELINES:
-        * diabetes     -> carbohydrate cap
-        * hypertension -> sodium cap
-    - Caps per-meal calories using either:
-        * resident.calorie_target_kcal * meal_fraction, or
-        * UK_GUIDELINES["max_calories_per_meal"] if no personal target
-
-    If `explain=True`, also returns a dict mapping meal_id -> explanation string.
-    """
-
-    # ---------- start with full list ----------
     candidates = list(meals)
 
-    # 1) meal type
+    # 1) meal type (SOFT)
     candidates = filter_meal_type(candidates, meal_type)
 
     # 2) allergies
     candidates = filter_allergies(resident, candidates)
 
-    # 3) diet type (vegetarian / vegan / halal / kosher)
+    # 3) diet
     candidates = filter_diet_type(resident, candidates)
 
-    # 4) conditions (hypertension / diabetes) using UK_GUIDELINES
+    # 4) conditions
     candidates = filter_conditions(resident, candidates)
 
-    # 5) calories cap (per-meal)
+    # 5) calories cap
     candidates = filter_calories(resident, candidates, daily_fraction=meal_fraction)
 
-    # ---------- basic relaxation if nothing remains ----------
+    # relaxation if nothing remains
     if not candidates and strict:
-        # Relax calories, keep allergens/diet/conditions
         relaxed = list(meals)
         relaxed = filter_meal_type(relaxed, meal_type)
         relaxed = filter_allergies(resident, relaxed)
@@ -182,7 +160,6 @@ def apply_basic_rules(
         relaxed = filter_conditions(resident, relaxed)
         candidates = relaxed
 
-    # If still nothing, very broad fallback: prefer low sodium, higher protein
     if not candidates:
         candidates = sorted(
             meals,
@@ -192,14 +169,11 @@ def apply_basic_rules(
     if not explain:
         return candidates
 
-    # ---------- build explanations for each candidate ----------
     explanations: dict[str, str] = {}
 
-    # helper values reused in explanations
     conds = {c.strip().lower() for c in (resident.conditions or []) if c.strip()}
     daily_kcal = resident.calorie_target_kcal or _mifflin_st_jeor_kcal(resident)
 
-    # per-meal calorie cap for explanation
     if resident.calorie_target_kcal:
         cap = daily_kcal * meal_fraction
         cap_is_personal = True
@@ -210,23 +184,18 @@ def apply_basic_rules(
     for m in candidates:
         parts = []
 
-        # Meal type
-        if meal_type and m.meal_type.lower() == meal_type.lower():
+        if meal_type and (m.meal_type or "").lower() == meal_type.lower():
             parts.append(f"Appropriate for the selected meal type ({meal_type}).")
 
-        # Allergies
         resident_all = {a.strip().lower() for a in (resident.allergies or []) if a.strip()}
         meal_all = {a.strip().lower() for a in (m.allergens or []) if a.strip()}
 
         if resident_all:
             if resident_all & meal_all:
-                parts.append(
-                    "⚠ Contains one or more allergens you are sensitive to (this should normally be filtered out)."
-                )
+                parts.append("⚠ Contains one or more allergens you are sensitive to (should normally be filtered out).")
             else:
                 parts.append("Free from your recorded allergens.")
 
-        # Diet type
         diet = (resident.diet_type or "").lower()
         if diet == "vegetarian":
             parts.append("Meets vegetarian dietary requirements.")
@@ -235,73 +204,45 @@ def apply_basic_rules(
         elif diet in {"halal", "kosher"}:
             parts.append(f"Marked as suitable for a {diet.capitalize()} diet.")
 
-        # Hypertension / sodium (using UK guidelines)
         if m.sodium_mg is not None:
             if "hypertension" in conds:
                 max_na_ht = UK_GUIDELINES["max_sodium_hypertension"]
                 if m.sodium_mg <= max_na_ht:
-                    parts.append(
-                        f"Sodium level ({m.sodium_mg:.0f} mg) is within hypertension-friendly guidance (≤ {max_na_ht} mg per meal)."
-                    )
+                    parts.append(f"Sodium ({m.sodium_mg:.0f} mg) is within hypertension guidance (≤ {max_na_ht} mg).")
                 else:
-                    parts.append(
-                        f"Sodium level ({m.sodium_mg:.0f} mg) is above the stricter hypertension guideline (~{max_na_ht} mg per meal)."
-                    )
+                    parts.append(f"Sodium ({m.sodium_mg:.0f} mg) is above hypertension guidance (~{max_na_ht} mg).")
             else:
                 max_na = UK_GUIDELINES["max_sodium_per_meal"]
                 if m.sodium_mg <= max_na:
-                    parts.append(
-                        f"Sodium content ({m.sodium_mg:.0f} mg) is within the UK per-meal guideline (≤ {max_na} mg)."
-                    )
+                    parts.append(f"Sodium ({m.sodium_mg:.0f} mg) is within UK per-meal guideline (≤ {max_na} mg).")
                 else:
-                    parts.append(
-                        f"Sodium content ({m.sodium_mg:.0f} mg) is above the UK per-meal guideline (~{max_na} mg)."
-                    )
+                    parts.append(f"Sodium ({m.sodium_mg:.0f} mg) is above UK per-meal guideline (~{max_na} mg).")
 
-        # Diabetes / carbohydrates (using UK guidelines)
         if "diabetes" in conds and m.carbs_g is not None:
             max_carbs = UK_GUIDELINES["max_carbs_diabetes"]
             if m.carbs_g <= max_carbs:
-                parts.append(
-                    f"Carbohydrate level ({m.carbs_g:.0f} g) fits within diabetes-friendly guidance (≤ {max_carbs} g per meal)."
-                )
+                parts.append(f"Carbs ({m.carbs_g:.0f} g) fits diabetes guidance (≤ {max_carbs} g).")
             else:
-                parts.append(
-                    f"Carbohydrates ({m.carbs_g:.0f} g) exceed typical diabetes guidance (~{max_carbs} g per meal)."
-                )
+                parts.append(f"Carbs ({m.carbs_g:.0f} g) exceed diabetes guidance (~{max_carbs} g).")
 
-        # Protein guideline
         if m.protein_g is not None:
             min_prot = UK_GUIDELINES["min_protein_per_meal"]
             if m.protein_g >= min_prot:
-                parts.append(
-                    f"Provides adequate protein for older adults (~{m.protein_g:.1f} g ≥ {min_prot} g guideline per meal)."
-                )
+                parts.append(f"Protein is good ({m.protein_g:.1f} g ≥ {min_prot} g guideline).")
             else:
-                parts.append(
-                    f"Lower protein meal (~{m.protein_g:.1f} g, guideline ≈ {min_prot} g per meal for older adults)."
-                )
+                parts.append(f"Lower protein (~{m.protein_g:.1f} g, guideline ≈ {min_prot} g).")
 
-        # Calories
         if cap is not None and m.calories_kcal is not None:
             if m.calories_kcal <= cap:
                 if cap_is_personal:
-                    parts.append(
-                        f"Energy content ({m.calories_kcal:.0f} kcal) fits your personalised per-meal target (~{cap:.0f} kcal)."
-                    )
+                    parts.append(f"Calories ({m.calories_kcal:.0f}) fit your per-meal target (~{cap:.0f}).")
                 else:
-                    parts.append(
-                        f"Energy content ({m.calories_kcal:.0f} kcal) is within a typical UK per-meal guideline (≤ {cap:.0f} kcal)."
-                    )
+                    parts.append(f"Calories ({m.calories_kcal:.0f}) are within typical per-meal guideline (≤ {cap:.0f}).")
             else:
                 if cap_is_personal:
-                    parts.append(
-                        f"Energy content ({m.calories_kcal:.0f} kcal) is above your per-meal target (~{cap:.0f} kcal) but included after relaxing rules."
-                    )
+                    parts.append(f"Calories ({m.calories_kcal:.0f}) exceed your target (~{cap:.0f}) but included after relaxing.")
                 else:
-                    parts.append(
-                        f"Energy content ({m.calories_kcal:.0f} kcal) is above the typical UK per-meal guideline (~{cap:.0f} kcal)."
-                    )
+                    parts.append(f"Calories ({m.calories_kcal:.0f}) exceed typical per-meal guideline (~{cap:.0f}).")
 
         if not parts:
             parts.append("Suitable based on your overall nutritional profile and recorded preferences.")
