@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Edit Resident{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h4 class="mb-3">Edit resident</h4>
+          <form method="post" class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Name *</label>
+              <input name="name" class="form-control" value="{{ r.name }}" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Age *</label>
+              <input name="age" type="number" class="form-control" value="{{ r.age }}" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Sex *</label>
+              <select name="sex" class="form-select">
+                {% for s in ["F","M","Other"] %}
+                <option value="{{ s }}" {% if r.sex==s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Weight (kg) *</label>
+              <input name="weight_kg" type="number" step="0.1" class="form-control" value="{{ r.weight_kg }}" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Height (cm) *</label>
+              <input name="height_cm" type="number" step="0.1" class="form-control" value="{{ r.height_cm }}" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Daily kcal</label>
+              <input name="calorie_target_kcal" type="number" class="form-control" value="{{ r.calorie_target_kcal }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Protein target (g)</label>
+              <input name="protein_target_g" type="number" step="0.1" class="form-control" value="{{ r.protein_target_g }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Allergies</label>
+              <input name="allergies" class="form-control" value="{{ r.allergies }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Conditions</label>
+              <input name="conditions" class="form-control" value="{{ r.conditions }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Diet type</label>
+              <select name="diet_type" class="form-select">
+                {% for d in ["none","vegetarian","vegan","halal","kosher"] %}
+                <option value="{{ d }}" {% if r.diet_type==d %}selected{% endif %}>{{ d|capitalize }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Texture</label>
+              <select name="texture" class="form-select">
+                {% for t in ["regular","soft","pureed"] %}
+                <option value="{{ t }}" {% if r.texture==t %}selected{% endif %}>{{ t|capitalize }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Cultural prefs</label>
+              <input name="cultural_prefs" class="form-control" value="{{ r.cultural_prefs }}">
+            </div>
+
+            <div class="col-12">
+              <button class="btn btn-success">Save changes</button>
+              <a class="btn btn-secondary" href="{{ url_for('residents_list') }}">Cancel</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
