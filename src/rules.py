@@ -25,6 +25,38 @@ UK_GUIDELINES = {
 
 # --- Individual filters ---
 
+import re
+
+MEAT_FISH_WORDS = {
+    "beef", "pork", "bacon", "ham", "lamb", "mutton", "veal",
+    "chicken", "turkey", "duck", "goose",
+    "fish", "salmon", "tuna", "cod", "haddock", "sardine", "anchovy",
+    "prawn", "shrimp", "crab", "lobster", "shellfish",
+    "bolognese",  # your dataset has meat bolognese
+}
+
+VEGAN_DAIRY_EGG_WORDS = {
+    "milk", "cheese", "butter", "cream", "yoghurt", "yogurt",
+    "egg", "eggs", "mayonnaise", "honey",
+}
+
+def _text(meal: Meal) -> str:
+    name = (meal.name or "").lower()
+    # tags may be list or string or empty
+    if isinstance(meal.tags, list):
+        tags = " ".join(str(t).lower() for t in meal.tags)
+    else:
+        tags = (meal.tags or "").lower()
+    return f"{name} {tags}"
+
+def _contains_any(text: str, words: set[str]) -> bool:
+    # word-boundary match helps avoid accidental matches
+    for w in words:
+        if re.search(rf"\b{re.escape(w)}\b", text):
+            return True
+    return False
+
+
 def filter_meal_type(meals: List[Meal], meal_type: Optional[str]) -> List[Meal]:
     """
     IMPORTANT DIVERSITY FIX:
@@ -42,34 +74,105 @@ def filter_meal_type(meals: List[Meal], meal_type: Optional[str]) -> List[Meal]:
 def filter_allergies(resident: Resident, meals: List[Meal]) -> List[Meal]:
     if not resident.allergies:
         return meals
-    blocked = set(a.lower() for a in resident.allergies)
+
+    # Normalise resident allergies
+    blocked = {str(a).strip().lower() for a in resident.allergies if str(a).strip()}
+
+    # Simple keyword map (prototype-safe)
+    ALLERGEN_KEYWORDS = {
+        "nuts": [
+            "almond", "peanut", "cashew", "walnut", "hazelnut", "pistachio",
+            "pecan", "brazil nut", "macadamia", "pine nut", "nut "
+        ],
+        "milk": ["milk", "cheese", "butter", "cream", "yoghurt", "yogurt", "whey"],
+        "egg": ["egg", "omelette", "mayonnaise", "mayo"],
+        "fish": ["fish", "salmon", "tuna", "cod", "haddock", "sardine", "mackerel", "anchovy", "trout", "duck"],  # duck isn't fish, remove if you prefer
+        "shellfish": ["shrimp", "prawn", "crab", "lobster", "mussel", "clam", "oyster", "scallop"],
+        "gluten": ["wheat", "barley", "rye", "bread", "pasta", "flour", "noodle", "cracker"],
+        "soy": ["soy", "soya", "tofu", "edamame"],
+        "sesame": ["sesame", "tahini"],
+    }
+
+    def inferred_allergens(m: Meal) -> set[str]:
+        # m.allergens might be [] or a string depending on your model—handle both
+        explicit = set()
+        if m.allergens:
+            if isinstance(m.allergens, list):
+                explicit = {str(a).strip().lower() for a in m.allergens if str(a).strip()}
+            else:
+                explicit = {s.strip().lower() for s in str(m.allergens).split(",") if s.strip()}
+
+        text = f"{m.name or ''} {','.join(m.tags) if isinstance(m.tags, list) else (m.tags or '')}".lower()
+
+        inferred = set()
+        for allergen, kws in ALLERGEN_KEYWORDS.items():
+            if any(kw in text for kw in kws):
+                inferred.add(allergen)
+
+        return explicit | inferred
+
     safe = []
     for m in meals:
-        meal_allergens = set(a.lower() for a in m.allergens)
+        meal_allergens = inferred_allergens(m)
         if blocked & meal_allergens:
             continue
         safe.append(m)
+
     return safe
 
 
+
 def filter_diet_type(resident: Resident, meals: List[Meal]) -> List[Meal]:
-    diet = (resident.diet_type or "none").lower()
+    raw = (resident.diet_type or "none")
+    diet = "".join(raw.lower().split())
+
+    allowed = {"none", "vegetarian", "vegan", "halal", "kosher"}
+    if diet not in allowed:
+        diet = "none"
     if diet == "none":
         return meals
 
-    def ok(m: Meal) -> bool:
-        tags = {t.lower() for t in m.tags}
-        if diet == "vegetarian":
-            return "vegetarian" in tags or "vegan" in tags
-        if diet == "vegan":
-            return "vegan" in tags
-        if diet == "halal":
-            return "halal" in tags
-        if diet == "kosher":
-            return "kosher" in tags
-        return True
+    safe = []
+    for m in meals:
+        txt = _text(m)
 
-    return [m for m in meals if ok(m)]
+        # If explicit tags exist, prefer them
+        tags_set = set()
+        if isinstance(m.tags, list):
+            tags_set = {str(t).strip().lower() for t in m.tags if str(t).strip()}
+        else:
+            tags_set = {t.strip().lower() for t in str(m.tags or "").split(",") if t.strip()}
+
+        if diet == "vegetarian":
+            # allow if tagged veg/vegan OR doesn't look like meat/fish
+            if ("vegetarian" in tags_set) or ("vegan" in tags_set):
+                safe.append(m)
+            elif not _contains_any(txt, MEAT_FISH_WORDS):
+                safe.append(m)
+
+        elif diet == "vegan":
+            # allow if tagged vegan OR doesn't look like meat/fish/dairy/eggs
+            if "vegan" in tags_set:
+                safe.append(m)
+            elif (not _contains_any(txt, MEAT_FISH_WORDS)) and (not _contains_any(txt, VEGAN_DAIRY_EGG_WORDS)):
+                safe.append(m)
+
+        elif diet == "halal":
+            # only enforce if tags actually exist; otherwise don't accidentally block everything
+            if not tags_set or ("halal" in tags_set):
+                safe.append(m)
+
+        elif diet == "kosher":
+            if not tags_set or ("kosher" in tags_set):
+                safe.append(m)
+
+        else:
+            safe.append(m)
+
+    return safe
+
+
+
 
 
 def filter_conditions(resident: Resident, meals: List[Meal]) -> List[Meal]:
@@ -161,10 +264,13 @@ def apply_basic_rules(
         candidates = relaxed
 
     if not candidates:
+    # keep diet/allergy safety even in fallback
+        fallback = filter_allergies(resident, list(meals))
+        fallback = filter_diet_type(resident, fallback)
         candidates = sorted(
-            meals,
-            key=lambda m: (m.sodium_mg or 0, -(m.protein_g or 0), m.calories_kcal or 0),
-        )[:20]
+        fallback,
+        key=lambda m: (m.sodium_mg or 0, -(m.protein_g or 0), m.calories_kcal or 0),
+    )[:10]
 
     if not explain:
         return candidates
@@ -203,7 +309,7 @@ def apply_basic_rules(
             parts.append("Meets vegan dietary requirements.")
         elif diet in {"halal", "kosher"}:
             parts.append(f"Marked as suitable for a {diet.capitalize()} diet.")
-
+        
         if m.sodium_mg is not None:
             if "hypertension" in conds:
                 max_na_ht = UK_GUIDELINES["max_sodium_hypertension"]

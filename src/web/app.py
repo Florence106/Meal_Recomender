@@ -724,7 +724,9 @@ def register():
             flash("Passwords do not match.", "danger")
             return render_template("register.html")
         
-        if reg_code != STAFF_REGISTRATION_CODE:
+        expected_code = os.environ.get("STAFF_REGISTRATION_CODE", "DEV_CODE")
+
+        if reg_code != expected_code:
             flash("Invalid staff registration code.", "danger")
             return render_template("register.html")
 
